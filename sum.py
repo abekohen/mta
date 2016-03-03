@@ -24,6 +24,9 @@ for key, values in stations.iteritems():
 
 print 'got', len(deltas), 'deltas'
 seaborn.distplot([d for d in deltas if d < 3600])
+pyplot.title('Distribution of delays between subway arrivals')
+pyplot.xlabel('Time (s)')
+pyplot.ylabel('Probability distribution')
 pyplot.savefig('time_between_arrivals.png')
 
 percs = [50, 75, 90, 95, 97, 98, 99]
@@ -39,7 +42,8 @@ pyplot.clf()
 for i, result in enumerate(results):
     pyplot.plot(offsets, result, label='%d percentile' % percs[i])
 pyplot.ylim([0, max(offsets)*3])
-pyplot.xlabel('Time you have waited for the subway')
-pyplot.ylabel('Additional time until subway arrives')
+pyplot.title('How long do you have to wait given that you already waited?')
+pyplot.xlabel('Time you have waited for the subway (s)')
+pyplot.ylabel('Additional time until subway arrives (s)')
 pyplot.legend()
 pyplot.savefig('time_until_arrival.png')

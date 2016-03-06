@@ -41,7 +41,7 @@ for key, values in stations.iteritems():
         last_value = value
 
 # Plot distributions of deltas
-#print 'got', len(deltas), 'deltas'
+print 'got', len(deltas), 'deltas'
 #seaborn.distplot([d for d in deltas if d < 3600])
 #pyplot.title('Distribution of delays between subway arrivals')
 #pyplot.xlabel('Time (s)')
@@ -52,9 +52,9 @@ for key, values in stations.iteritems():
 percs = [50, 75, 90, 95, 97, 98, 99]
 results = [[] for perc in percs]
 xs = range(0, 24 * 60)
-for x, deltas in enumerate(next_subway_by_time_of_day):
-    print x, len(deltas), '...'
-    rs = numpy.percentile(deltas, percs)
+for x, next_subway_deltas in enumerate(next_subway_by_time_of_day):
+    print x, len(next_subway_deltas), '...'
+    rs = numpy.percentile(next_subway_deltas, percs)
     for i, r in enumerate(rs):
         results[i].append(r)
 

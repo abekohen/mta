@@ -1,25 +1,27 @@
 import json
 import datetime
-# import seaborn
+import seaborn
 import numpy
+import math
 from matplotlib import pyplot
 
+lines = {'1': '123', '2': '123', '3': '123',
+         '4': '456', '5': '456', '6': '456', '5X': '456', '6X': '456',
+         'GS': 'GS'}
 stations = {}
 for line in open('log.jsons'):
     for vehicle in json.loads(line.strip()):
         if vehicle.get('current_status') != 1: # STOPPED_AT
             continue
         try:
-            key = (vehicle['trip']['route_id'].strip('X'), vehicle['stop_id'])
+            line = lines[vehicle['trip']['route_id']]
+            stop = vehicle['stop_id']
+            key = (line, stop)
             timestamp = vehicle['timestamp'] # datetime.datetime.utcfromtimestamp(vehicle['timestamp'])
             stations.setdefault(key, set()).add(timestamp)
         except:
-            print 'weird vehicle'
+            print 'weird vehicle', vehicle
             continue
-
-# Only look at the top 50% combinations of stations and routes
-station_threshold = numpy.percentile(map(len, stations.values()), 50)
-print 'threshold:', station_threshold
 
 # Look at all intervals between subway arrivals
 def next_whole_minute(t):
@@ -28,8 +30,6 @@ def next_whole_minute(t):
 deltas = []
 next_subway_by_time_of_day = [[] for x in xrange(24 * 60)]
 for key, values in stations.iteritems():
-    if len(values) < station_threshold:
-        continue
     print key, len(values)
     last_value = None
     for value in sorted(values):
@@ -42,11 +42,12 @@ for key, values in stations.iteritems():
 
 # Plot distributions of deltas
 print 'got', len(deltas), 'deltas'
-#seaborn.distplot([d for d in deltas if d < 3600])
-#pyplot.title('Distribution of delays between subway arrivals')
-#pyplot.xlabel('Time (s)')
-#pyplot.ylabel('Probability distribution')
-#pyplot.savefig('time_between_arrivals.png')
+lm = seaborn.distplot([d for d in deltas if d < 7200])
+pyplot.xlim([0, 3600])
+pyplot.title('Distribution of delays between subway arrivals')
+pyplot.xlabel('Time (s)')
+pyplot.ylabel('Probability distribution')
+pyplot.savefig('time_between_arrivals.png')
 
 # Plot distribution of delays by time of day
 percs = [50, 75, 90, 95, 97, 98, 99]
@@ -61,7 +62,7 @@ for x, next_subway_deltas in enumerate(next_subway_by_time_of_day):
 pyplot.clf()
 for i, result in enumerate(results):
     pyplot.plot([x * 1.0 / 60 for x in xs], result, label='%d percentile' % percs[i])
-pyplot.ylim([0, 3600])
+pyplot.ylim([0, 7200])
 pyplot.xlim([0, 24])
 pyplot.title('How long do you have to wait given time of day')
 pyplot.xlabel('Time of day (h)')

@@ -3,19 +3,24 @@ import datetime
 import seaborn
 import numpy
 import math
+import pandas
 from matplotlib import pyplot
 
-lines = {'1': '123', '2': '123', '3': '123',
-         '4': '456', '5': '456', '6': '456', '5X': '456', '6X': '456',
-         'GS': 'GS'}
 stations = {}
 for line in open('log.jsons'):
     for vehicle in json.loads(line.strip()):
         if vehicle.get('current_status') != 1: # STOPPED_AT
             continue
         try:
-            line = lines[vehicle['trip']['route_id']]
-            stop = vehicle['stop_id']
+            line = vehicle['trip']['route_id'].rstrip('X') # fold express into normal
+            if line not in ['1', '2', '3', '4', '5', '6', 'GS', 'L', 'SI']:
+                print 'weird line', line
+                continue
+            if 'stop_id' in vehicle:
+                stop = vehicle['stop_id']
+            else:
+                # L and SI stop at every station, need to use 
+                stop = '%d%s' % (vehicle['current_stop_sequence'], vehicle['trip']['trip_id'][-1])
             key = (line, stop)
             timestamp = vehicle['timestamp'] # datetime.datetime.utcfromtimestamp(vehicle['timestamp'])
             stations.setdefault(key, set()).add(timestamp)
@@ -29,12 +34,15 @@ def next_whole_minute(t):
 
 deltas = []
 next_subway_by_time_of_day = [[] for x in xrange(24 * 60)]
+deltas_by_line = []
 for key, values in stations.iteritems():
+    line, stop = key
     print key, len(values)
     last_value = None
     for value in sorted(values):
         if last_value is not None:
             deltas.append(value - last_value)
+            deltas_by_line.append({'x': line, 'y': value - last_value})
             for t in xrange(next_whole_minute(last_value), value, 60):
                 x = (t // 60 + 19 * 60) % (24 * 60) # 19 from UTC offset
                 next_subway_by_time_of_day[x].append(value - t)
@@ -42,15 +50,23 @@ for key, values in stations.iteritems():
 
 # Plot distributions of deltas
 print 'got', len(deltas), 'deltas'
-lm = seaborn.distplot([d for d in deltas if d < 7200])
+seaborn.distplot([d for d in deltas if d < 7200])
 pyplot.xlim([0, 3600])
 pyplot.title('Distribution of delays between subway arrivals')
 pyplot.xlabel('Time (s)')
 pyplot.ylabel('Probability distribution')
 pyplot.savefig('time_between_arrivals.png')
 
+# Plot deltas by line
+seaborn.boxplot(x='x', y='y', data=pandas.DataFrame(deltas_by_line))
+pyplot.ylim([0, 3600])
+pyplot.title('Time until the next subway')
+pyplot.xlabel('Line')
+pyplot.ylabel('Time (s)')
+pyplot.savefig('time_to_arrival_by_line.png')
+
 # Plot distribution of delays by time of day
-percs = [50, 75, 90, 95, 97, 98, 99]
+percs = [50, 60, 70, 80, 90]
 results = [[] for perc in percs]
 xs = range(0, 24 * 60)
 for x, next_subway_deltas in enumerate(next_subway_by_time_of_day):
@@ -71,7 +87,6 @@ pyplot.legend()
 pyplot.savefig('delay_by_time_of_day.png')
 
 # Compute all percentiles
-percs = [50, 75, 90, 95, 97, 98, 99]
 results = [[] for perc in percs]
 offsets = range(0, 20 * 60)
 for offset in offsets:

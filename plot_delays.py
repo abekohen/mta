@@ -37,6 +37,7 @@ next_subway = []
 next_subway_by_time_of_day = [[] for x in xrange(24 * 60)]
 next_subway_by_line = []
 for key, values in stations.iteritems():
+    line, stop = key
     values = sorted(values)
     print key, len(values)
     last_value = None
@@ -53,15 +54,16 @@ for key, values in stations.iteritems():
 for data, fn, title, color in [(deltas, 'time_between_arrivals.png', 'Distribution of delays between subway arrivals', 'blue'),
                                (next_subway, 'time_to_next_arrival.png', 'Distribution of time until the next subway arrival', 'red')]:
     print 'got', len(data), 'points'
-    lm = seaborn.distplot([d for d in data if d < 7200], bins=60, color=color)
-    pyplot.xlim([0, 3600])
+    pyplot.clf()
+    lm = seaborn.distplot([d for d in data if d < 7200], bins=720, color=color)
+    pyplot.xlim([0, 1800])
     pyplot.title(title)
     pyplot.xlabel('Time (s)')
     pyplot.ylabel('Probability distribution')
     pyplot.savefig(fn)
 
 # Plot deltas by line
-seaborn.boxplot(x='x', y='y', data=pandas.DataFrame(deltas_by_line),
+seaborn.boxplot(x='x', y='y', data=pandas.DataFrame(next_subway_by_line),
                 order=['1', '2', '3', '4', '5', '6', 'GS', 'L', 'SI'],
                 palette=['#EE352E']*3 + ['#00933C']*3 + ['#808183', '#A7A9AC', '#000000'])
 pyplot.ylim([0, 1800])

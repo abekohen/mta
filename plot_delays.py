@@ -33,32 +33,35 @@ def next_whole_minute(t):
     return t+59 - (t+59)%60
 
 deltas = []
+next_subway = []
 next_subway_by_time_of_day = [[] for x in xrange(24 * 60)]
-deltas_by_line = []
+next_subway_by_line = []
 for key, values in stations.iteritems():
-    line, stop = key
+    values = sorted(values)
     print key, len(values)
     last_value = None
-    for value in sorted(values):
-        if last_value is not None:
-            deltas.append(value - last_value)
-            deltas_by_line.append({'x': line, 'y': value - last_value})
-            for t in xrange(next_whole_minute(last_value), value, 60):
-                x = (t // 60 + 19 * 60) % (24 * 60) # 19 from UTC offset
-                next_subway_by_time_of_day[x].append(value - t)
-        last_value = value
+    for i in xrange(1, len(values)):
+        last_value, value = values[i-1], values[i]
+        deltas.append(value - last_value)
+        for t in xrange(next_whole_minute(last_value), value, 60):
+            x = (t // 60 + 19 * 60) % (24 * 60) # 19 from UTC offset
+            next_subway_by_time_of_day[x].append(value - t)
+            next_subway.append(value - t)
+            next_subway_by_line.append({'x': line, 'y': value - t})
 
 # Plot distributions of deltas
-print 'got', len(deltas), 'deltas'
-seaborn.distplot([d for d in deltas if d < 7200])
-pyplot.xlim([0, 3600])
-pyplot.title('Distribution of delays between subway arrivals')
-pyplot.xlabel('Time (s)')
-pyplot.ylabel('Probability distribution')
-pyplot.savefig('time_between_arrivals.png')
+for data, fn, title, color in [(deltas, 'time_between_arrivals.png', 'Distribution of delays between subway arrivals', 'blue'),
+                               (next_subway, 'time_to_next_arrival.png', 'Distribution of time until the next subway arrival', 'red')]:
+    print 'got', len(data), 'points'
+    lm = seaborn.distplot([d for d in data if d < 7200], bins=60, color=color)
+    pyplot.xlim([0, 3600])
+    pyplot.title(title)
+    pyplot.xlabel('Time (s)')
+    pyplot.ylabel('Probability distribution')
+    pyplot.savefig(fn)
 
 # Plot deltas by line
-seaborn.boxplot(x='x', y='y', data=pandas.DataFrame(deltas_by_line))
+seaborn.boxplot(x='x', y='y', data=pandas.DataFrame(next_subway_by_line))
 pyplot.ylim([0, 3600])
 pyplot.title('Time until the next subway')
 pyplot.xlabel('Line')

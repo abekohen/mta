@@ -61,8 +61,10 @@ for data, fn, title, color in [(deltas, 'time_between_arrivals.png', 'Distributi
     pyplot.savefig(fn)
 
 # Plot deltas by line
-seaborn.boxplot(x='x', y='y', data=pandas.DataFrame(next_subway_by_line))
-pyplot.ylim([0, 3600])
+seaborn.boxplot(x='x', y='y', data=pandas.DataFrame(deltas_by_line),
+                order=['1', '2', '3', '4', '5', '6', 'GS', 'L', 'SI'],
+                palette=['#EE352E']*3 + ['#00933C']*3 + ['#808183', '#A7A9AC', '#000000'])
+pyplot.ylim([0, 1800])
 pyplot.title('Time until the next subway')
 pyplot.xlabel('Line')
 pyplot.ylabel('Time (s)')

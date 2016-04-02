@@ -28,8 +28,8 @@ for n_lines, line in enumerate(open('log.jsons')):
             print 'weird vehicle', vehicle
             continue
 
-    if n_lines >= 10000:
-        break
+    #if n_lines >= 10000:
+    #    break
 
 # Look at all intervals between subway arrivals
 def next_whole_minute(t):
@@ -38,7 +38,9 @@ def next_whole_minute(t):
 deltas = []
 next_subway = []
 next_subway_by_time_of_day = [[] for x in xrange(24 * 60)]
-next_subway_by_line = []
+next_subway_by_line_ts = []
+next_subway_by_line_ls = []
+max_limit = 7200 # cap max value so that Seaborn's KDE works better
 for key, values in stations.iteritems():
     line, stop = key
     values = sorted(values)
@@ -46,34 +48,44 @@ for key, values in stations.iteritems():
     last_value = None
     for i in xrange(1, len(values)):
         last_value, value = values[i-1], values[i]
-        deltas.append(1. / 60 * (value - last_value))
+        if value - last_value < max_limit:
+            deltas.append(1. / 60 * (value - last_value))
         for t in xrange(next_whole_minute(last_value), value, 60):
             x = (t // 60 + 19 * 60) % (24 * 60) # 19 from UTC offset
-            waiting_time = 1. / 60 * (value - t)
-            next_subway_by_time_of_day[x].append(waiting_time)
-            next_subway.append(waiting_time)
-            next_subway_by_line.append({'x': line, 'y': waiting_time})
+            if value - t < max_limit:
+                waiting_time = 1. / 60 * (value - t)
+                next_subway_by_time_of_day[x].append(waiting_time)
+                next_subway.append(waiting_time)
+                next_subway_by_line_ts.append(waiting_time)
+                next_subway_by_line_ls.append(line)
+            # {'line': line, 'time': waiting_time}
 
 # Plot distributions of deltas
 for data, fn, title, color in [(deltas, 'time_between_arrivals.png', 'Distribution of delays between subway arrivals', 'blue'),
                                (next_subway, 'time_to_next_arrival.png', 'Distribution of time until the next subway arrival', 'red')]:
     print 'got', len(data), 'points'
     pyplot.clf()
-    lm = seaborn.distplot([d for d in data if d < 120], bins=120, color=color, kde_kws={'gridsize': 600})
-    pyplot.xlim([0, 60])
+    lm = seaborn.distplot(data, bins=120, color=color, kde_kws={'gridsize': 600})
+    pyplot.xlim([0, 40])
     pyplot.title(title)
     pyplot.xlabel('Time (min)')
     pyplot.ylabel('Probability distribution')
     pyplot.savefig(fn)
+    print numpy.mean(data), numpy.median(data)
 
 # Plot deltas by line
-seaborn.boxplot(x='x', y='y', data=pandas.DataFrame(next_subway_by_line),
-                order=['1', '2', '3', '4', '5', '6', 'GS', 'L', 'SI'],
-                palette=['#EE352E']*3 + ['#00933C']*3 + ['#808183', '#A7A9AC', '#000000'])
-pyplot.ylim([0, 60])
+pyplot.figure(figsize=(10, 10))
+seaborn.violinplot(orient='h',
+                   x=next_subway_by_line_ts,
+                   y=next_subway_by_line_ls,
+                   order=['1', '2', '3', '4', '5', '6', 'GS', 'L', 'SI'],
+                   scale='width',
+                   palette=['#EE352E']*3 + ['#00933C']*3 + ['#808183', '#A7A9AC', '#555555'],
+                   gridsize=600)
+pyplot.xlim([0, 60])
 pyplot.title('Time until the next subway')
-pyplot.xlabel('Line')
-pyplot.ylabel('Time (min)')
+pyplot.xlabel('Time (min)')
+pyplot.ylabel('Line')
 pyplot.savefig('time_to_arrival_by_line.png')
 
 # Plot distribution of delays by time of day
@@ -89,7 +101,7 @@ for x, next_subway_slice in enumerate(next_subway_by_time_of_day):
 pyplot.clf()
 for i, result in enumerate(results):
     pyplot.plot([x * 1.0 / 60 for x in xs], result, label='%d percentile' % percs[i])
-pyplot.ylim([0, 120])
+pyplot.ylim([0, 60])
 pyplot.xlim([0, 24])
 pyplot.title('How long do you have to wait given time of day')
 pyplot.xlabel('Time of day (h)')

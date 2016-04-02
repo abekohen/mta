@@ -28,8 +28,8 @@ for n_lines, line in enumerate(open('log.jsons')):
             print 'weird vehicle', vehicle
             continue
 
-    #if n_lines >= 10000:
-    #    break
+    if n_lines >= 10000:
+        break
 
 # Look at all intervals between subway arrivals
 def next_whole_minute(t):
@@ -46,19 +46,20 @@ for key, values in stations.iteritems():
     last_value = None
     for i in xrange(1, len(values)):
         last_value, value = values[i-1], values[i]
-        deltas.append(value - last_value)
+        deltas.append(1. / 60 * (value - last_value))
         for t in xrange(next_whole_minute(last_value), value, 60):
             x = (t // 60 + 19 * 60) % (24 * 60) # 19 from UTC offset
-            next_subway_by_time_of_day[x].append(value - t)
-            next_subway.append(value - t)
-            next_subway_by_line.append({'x': line, 'y': value - t})
+            waiting_time = 1. / 60 * (value - t)
+            next_subway_by_time_of_day[x].append(waiting_time)
+            next_subway.append(waiting_time)
+            next_subway_by_line.append({'x': line, 'y': waiting_time})
 
 # Plot distributions of deltas
 for data, fn, title, color in [(deltas, 'time_between_arrivals.png', 'Distribution of delays between subway arrivals', 'blue'),
                                (next_subway, 'time_to_next_arrival.png', 'Distribution of time until the next subway arrival', 'red')]:
     print 'got', len(data), 'points'
     pyplot.clf()
-    lm = seaborn.distplot([d * 1./60 for d in data if d < 7200], bins=120, color=color, kde_kws={'gridsize': 600})
+    lm = seaborn.distplot([d for d in data if d < 120], bins=120, color=color, kde_kws={'gridsize': 600})
     pyplot.xlim([0, 60])
     pyplot.title(title)
     pyplot.xlabel('Time (min)')
@@ -69,48 +70,48 @@ for data, fn, title, color in [(deltas, 'time_between_arrivals.png', 'Distributi
 seaborn.boxplot(x='x', y='y', data=pandas.DataFrame(next_subway_by_line),
                 order=['1', '2', '3', '4', '5', '6', 'GS', 'L', 'SI'],
                 palette=['#EE352E']*3 + ['#00933C']*3 + ['#808183', '#A7A9AC', '#000000'])
-pyplot.ylim([0, 1800])
+pyplot.ylim([0, 60])
 pyplot.title('Time until the next subway')
 pyplot.xlabel('Line')
-pyplot.ylabel('Time (s)')
+pyplot.ylabel('Time (min)')
 pyplot.savefig('time_to_arrival_by_line.png')
 
 # Plot distribution of delays by time of day
 percs = [50, 60, 70, 80, 90]
 results = [[] for perc in percs]
 xs = range(0, 24 * 60)
-for x, next_subway_deltas in enumerate(next_subway_by_time_of_day):
-    print x, len(next_subway_deltas), '...'
-    rs = numpy.percentile(next_subway_deltas, percs)
+for x, next_subway_slice in enumerate(next_subway_by_time_of_day):
+    print x, len(next_subway_slice), '...'
+    rs = numpy.percentile(next_subway_slice, percs)
     for i, r in enumerate(rs):
         results[i].append(r)
 
 pyplot.clf()
 for i, result in enumerate(results):
     pyplot.plot([x * 1.0 / 60 for x in xs], result, label='%d percentile' % percs[i])
-pyplot.ylim([0, 7200])
+pyplot.ylim([0, 120])
 pyplot.xlim([0, 24])
 pyplot.title('How long do you have to wait given time of day')
 pyplot.xlabel('Time of day (h)')
-pyplot.ylabel('Time until subway arrives (s)')
+pyplot.ylabel('Time until subway arrives (min))')
 pyplot.legend()
-pyplot.savefig('delay_by_time_of_day.png')
+pyplot.savefig('time_to_arrival_by_time_of_day.png')
 
 # Compute all percentiles
 results = [[] for perc in percs]
-offsets = range(0, 20 * 60)
+offsets = numpy.arange(0, 60, 0.1)
 for offset in offsets:
     print offset, '...'
-    rs = numpy.percentile([d-offset for d in deltas if d >= offset], percs)
+    rs = numpy.percentile([d-offset for d in next_subway if d >= offset], percs)
     for i, r in enumerate(rs):
         results[i].append(r)
 
 pyplot.clf()
 for i, result in enumerate(results):
     pyplot.plot(offsets, result, label='%d percentile' % percs[i])
-pyplot.ylim([0, 3600])
+pyplot.ylim([0, 60])
 pyplot.title('How long do you have to wait given that you already waited?')
-pyplot.xlabel('Time you have waited for the subway (s)')
-pyplot.ylabel('Additional time until subway arrives (s)')
+pyplot.xlabel('Time you have waited for the subway (min)')
+pyplot.ylabel('Additional time until subway arrives (min)')
 pyplot.legend()
-pyplot.savefig('time_until_arrival.png')
+pyplot.savefig('time_to_arrival_percentiles.png')

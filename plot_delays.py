@@ -7,7 +7,7 @@ import pandas
 from matplotlib import pyplot
 
 stations = {}
-for line in open('log.jsons'):
+for n_lines, line in enumerate(open('log.jsons')):
     for vehicle in json.loads(line.strip()):
         if vehicle.get('current_status') != 1: # STOPPED_AT
             continue
@@ -27,6 +27,9 @@ for line in open('log.jsons'):
         except:
             print 'weird vehicle', vehicle
             continue
+
+    #if n_lines >= 10000:
+    #    break
 
 # Look at all intervals between subway arrivals
 def next_whole_minute(t):
@@ -55,10 +58,10 @@ for data, fn, title, color in [(deltas, 'time_between_arrivals.png', 'Distributi
                                (next_subway, 'time_to_next_arrival.png', 'Distribution of time until the next subway arrival', 'red')]:
     print 'got', len(data), 'points'
     pyplot.clf()
-    lm = seaborn.distplot([d for d in data if d < 7200], bins=720, color=color)
-    pyplot.xlim([0, 1800])
+    lm = seaborn.distplot([d * 1./60 for d in data if d < 7200], bins=120, color=color, kde_kws={'gridsize': 600})
+    pyplot.xlim([0, 60])
     pyplot.title(title)
-    pyplot.xlabel('Time (s)')
+    pyplot.xlabel('Time (min)')
     pyplot.ylabel('Probability distribution')
     pyplot.savefig(fn)
 

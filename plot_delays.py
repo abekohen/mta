@@ -5,6 +5,9 @@ import numpy
 import math
 import pandas
 from matplotlib import pyplot
+import matplotlib
+
+matplotlib.rcParams.update({'font.size': 48})
 
 stations = {}
 for n_lines, line in enumerate(open('log.jsons')):
@@ -31,6 +34,8 @@ for n_lines, line in enumerate(open('log.jsons')):
     #if n_lines >= 10000:
     #    break
 
+pyplot.figure(figsize=(10, 10))
+
 # Look at all intervals between subway arrivals
 def next_whole_minute(t):
     return t+59 - (t+59)%60
@@ -40,7 +45,8 @@ next_subway = []
 next_subway_by_time_of_day = [[] for x in xrange(24 * 60)]
 next_subway_by_line_ts = []
 next_subway_by_line_ls = []
-max_limit = 7200 # cap max value so that Seaborn's KDE works better
+next_subway_rush_hour = []
+max_limit = 4 * 3600 # cap max value so that Seaborn's KDE works better
 for key, values in stations.iteritems():
     line, stop = key
     values = sorted(values)
@@ -48,41 +54,42 @@ for key, values in stations.iteritems():
     last_value = None
     for i in xrange(1, len(values)):
         last_value, value = values[i-1], values[i]
-        if value - last_value < max_limit:
-            deltas.append(1. / 60 * (value - last_value))
+        if value - last_value >= max_limit:
+            continue
+        deltas.append(1. / 60 * (value - last_value))
         for t in xrange(next_whole_minute(last_value), value, 60):
             x = (t // 60 + 19 * 60) % (24 * 60) # 19 from UTC offset
-            if value - t < max_limit:
-                waiting_time = 1. / 60 * (value - t)
-                next_subway_by_time_of_day[x].append(waiting_time)
-                next_subway.append(waiting_time)
-                next_subway_by_line_ts.append(waiting_time)
-                next_subway_by_line_ls.append(line)
-            # {'line': line, 'time': waiting_time}
+            waiting_time = 1. / 60 * (value - t)
+            next_subway_by_time_of_day[x].append(waiting_time)
+            next_subway.append(waiting_time)
+            next_subway_by_line_ts.append(waiting_time)
+            next_subway_by_line_ls.append(line)
+            if x >= 7 * 60 and x < 19 * 60:
+                next_subway_rush_hour.append(waiting_time)
 
 # Plot distributions of deltas
 for data, fn, title, color in [(deltas, 'time_between_arrivals.png', 'Distribution of delays between subway arrivals', 'blue'),
                                (next_subway, 'time_to_next_arrival.png', 'Distribution of time until the next subway arrival', 'red')]:
     print 'got', len(data), 'points'
     pyplot.clf()
-    lm = seaborn.distplot(data, bins=120, color=color, kde_kws={'gridsize': 600})
-    pyplot.xlim([0, 40])
+    lm = seaborn.distplot(data, bins=numpy.linspace(0, 60, num=61), color=color, kde_kws={'gridsize': 2000})
+    pyplot.xlim([-1, 40])
     pyplot.title(title)
     pyplot.xlabel('Time (min)')
     pyplot.ylabel('Probability distribution')
     pyplot.savefig(fn)
-    print numpy.mean(data), numpy.median(data)
+    print 'mean', 60*numpy.mean(data), 'median', 60*numpy.median(data)
 
 # Plot deltas by line
-pyplot.figure(figsize=(10, 10))
+pyplot.clf()
 seaborn.violinplot(orient='h',
                    x=next_subway_by_line_ts,
                    y=next_subway_by_line_ls,
                    order=['1', '2', '3', '4', '5', '6', 'GS', 'L', 'SI'],
                    scale='width',
                    palette=['#EE352E']*3 + ['#00933C']*3 + ['#808183', '#A7A9AC', '#555555'],
-                   gridsize=600)
-pyplot.xlim([0, 60])
+                   bw=0.03, cut=0, gridsize=2000)
+pyplot.xlim([-1, 40])
 pyplot.title('Time until the next subway')
 pyplot.xlabel('Time (min)')
 pyplot.ylabel('Line')
@@ -111,10 +118,10 @@ pyplot.savefig('time_to_arrival_by_time_of_day.png')
 
 # Compute all percentiles
 results = [[] for perc in percs]
-offsets = numpy.arange(0, 60, 0.1)
+offsets = numpy.arange(0, 40, 0.1)
 for offset in offsets:
     print offset, '...'
-    rs = numpy.percentile([d-offset for d in next_subway if d >= offset], percs)
+    rs = numpy.percentile([d-offset for d in next_subway_rush_hour if d >= offset], percs)
     for i, r in enumerate(rs):
         results[i].append(r)
 

@@ -81,3 +81,14 @@ pyplot.xlabel('Delay between real and scheduled (min)')
 pyplot.ylabel('Probability distribution')
 pyplot.xlim([xmin, xmax])
 pyplot.savefig('travel_time_delay.png')
+
+delays_frac = numpy.array(ys) / numpy.array(xs) - 1.0
+xmin, xmax = -1.0, 50
+seaborn.distplot(delays_frac * 100, kde_kws={'gridsize': 2000})
+mean, median, pc90 = ('%.2f%%' % x for x in (numpy.mean(delays_frac), numpy.median(delays_frac), numpy.percentile(delays_frac, 90)))
+print mean, median, pc90
+pyplot.title('Travel time percent delays (mean = %s, median = %s, 90th percentile = %s' % (mean, median, pc90))
+pyplot.xlabel('Delay between real and scheduled (%)')
+pyplot.ylabel('Probability distribution')
+pyplot.xlim([xmin, xmax])
+pyplot.savefig('travel_time_delay.png')

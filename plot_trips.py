@@ -54,7 +54,7 @@ for trip, seq in read_data(date_a, date_b, margin).iteritems():
     ts = [datetime.datetime.utcfromtimestamp(t) for t, _ in seq]
     ys = [int(s[:-1]) for _, s in seq]
     unique_ys.update(ys)
-    plt.plot(ts, ys, '#00933C', lw=2.0) #, tz=nyc_tz)
+    plt.plot(ts, ys, '#EE352E', lw=2.0) #, tz=nyc_tz)
 
 plt.yticks(sorted(unique_ys), [stops[y] for y in sorted(unique_ys)])
 plt.xlim([date_a, date_b])

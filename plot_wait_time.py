@@ -1,8 +1,10 @@
 import bisect
+import datetime
 import json
 import random
 import seaborn
 import numpy
+import pandas
 import scipy
 from matplotlib import pyplot
 
@@ -15,10 +17,15 @@ for i, line in enumerate(open('stop_times.txt')):
     line = line.strip().split(',')
     if i > 0:
         trip_id, arr, dep, stop_id  = line[:4]
-        trip_id_short = trip_id.split('_', 1)[1]
-        key = (stop_id, trip_id_short)
+        if 'WKD' not in trip_id:
+            continue
+        line = trip_id.split('_')[2].split('.')[0]
+        key = (stop_id, line)
         arr = parse_time(arr)
-        sched_trips.setdefault(key, {})[trip_id] = arr
+        sched_trips.setdefault(key, []).append(arr)
+
+for key, stops in sched_trips.iteritems():
+    stops.sort()
 
 real_trips = {}
 for n_lines, line in enumerate(open('log.jsons')):
@@ -37,28 +44,53 @@ for n_lines, line in enumerate(open('log.jsons')):
                 stop_id = '%d%s' % (vehicle['current_stop_sequence'], vehicle['trip']['trip_id'][-1])
             key = (stop_id, line)
             timestamp = vehicle['timestamp']
-            real_trips.setdefault(key, []).append((timestamp, vehicle['trip']['trip_id']))
+            t = datetime.datetime.utcfromtimestamp(vehicle['timestamp'])
+            if t.weekday() < 5:
+                real_trips.setdefault(key, set()).add(timestamp)
         except:
             print 'weird vehicle', vehicle
             continue
-    if n_lines == 1000:
+    if n_lines == 100000:
         break
 
 xs = []
 ys = []
 
+MAX = 1800
+
 for key, stops in real_trips.iteritems():
     stop_id, line = key
 
-    stops.sort()
+    stops = sorted(stops)
+    if len(stops) < 5:
+        print key, 'not enough stops'
+        continue # stupid
+    if key not in sched_trips:
+        print key, 'has no schedule'
+        continue
 
     # Sample random points in time and tie 
-    lo, _ = stops[0]
-    hi, _ = stops[-1]
+    lo = stops[0]
+    hi = stops[-1]
     for i in xrange(10):
         t = lo + random.random() * (hi - lo)
-        j = bisect.bisect(stops, (t, None))
-        t0, id0 = stops[j-1]
-        t1, id1 = stops[j]
-        print sched_trips.get((stop_id, id0)), sched_trips.get((stop_id, id1))
-        
+        j = bisect.bisect(stops, t)
+        t1 = stops[j]
+        real_wait_time = t1 - t
+        # transform t to day offset
+        u = (t + (19 * 60 * 60)) % (24 * 60 * 60)
+        j = bisect.bisect(sched_trips[key], u)
+        if j < len(sched_trips[key]):
+            u1 = sched_trips[key][j]
+        else:
+            u1 = 24 * 60 * 60 + sched_trips[key][0]
+        sched_wait_time = u1 - u
+
+        if max(sched_wait_time, real_wait_time) < MAX:
+            xs.append(sched_wait_time)
+            ys.append(real_wait_time)
+
+seaborn.jointplot(numpy.array(xs) / 60, numpy.array(ys) / 60, kind='hex')
+# pyplot.xlim([0, 1800])
+# pyplot.ylim([0, 1800])
+pyplot.show()

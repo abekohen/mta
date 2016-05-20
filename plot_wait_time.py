@@ -50,13 +50,16 @@ for n_lines, line in enumerate(open('log.jsons')):
         except:
             print 'weird vehicle', vehicle
             continue
-    if n_lines == 100000:
-        break
+    if n_lines % 1000 == 0:
+        print n_lines, '...'
 
 xs = []
 ys = []
 
 MAX = 1800
+
+ys_by_x = [[] for x in xrange(MAX/60)]
+print ys_by_x
 
 for key, stops in real_trips.iteritems():
     stop_id, line = key
@@ -72,7 +75,7 @@ for key, stops in real_trips.iteritems():
     # Sample random points in time and tie 
     lo = stops[0]
     hi = stops[-1]
-    for i in xrange(10):
+    for i in xrange(len(stops)): # pretty arbitrary number of samples
         t = lo + random.random() * (hi - lo)
         j = bisect.bisect(stops, t)
         t1 = stops[j]
@@ -87,10 +90,26 @@ for key, stops in real_trips.iteritems():
         sched_wait_time = u1 - u
 
         if max(sched_wait_time, real_wait_time) < MAX:
-            xs.append(sched_wait_time)
-            ys.append(real_wait_time)
+            xs.append(sched_wait_time / 60.)
+            ys.append(real_wait_time / 60.)
 
-seaborn.jointplot(numpy.array(xs) / 60, numpy.array(ys) / 60, kind='hex')
+            print int(sched_wait_time/60.0), len(ys_by_x)
+            ys_by_x[int(sched_wait_time / 60.0)].append(real_wait_time / 60.)
+
+seaborn.jointplot(numpy.array(xs), numpy.array(ys), kind='hex')
 # pyplot.xlim([0, 1800])
 # pyplot.ylim([0, 1800])
+pyplot.show()
+
+pyplot.clf()
+percs = [50, 60, 70, 80, 90]
+results = [[] for p in percs]
+for x, ys in enumerate(ys_by_x):
+    print x, len(ys)
+    ps = numpy.percentile(ys, percs)
+    for i, y in enumerate(ps):
+        results[i].append(y)
+
+for i, ys in enumerate(results):
+    pyplot.plot(range(len(ys)), ys, label='%d percentile' % percs[i])
 pyplot.show()

@@ -61,6 +61,8 @@ MAX = 1800
 ys_by_x = [[] for x in xrange(MAX/60)]
 print ys_by_x
 
+max_time = 4 * 3600
+
 for key, stops in real_trips.iteritems():
     stop_id, line = key
 
@@ -78,7 +80,9 @@ for key, stops in real_trips.iteritems():
     for i in xrange(len(stops)): # pretty arbitrary number of samples
         t = lo + random.random() * (hi - lo)
         j = bisect.bisect(stops, t)
-        t1 = stops[j]
+        t0, t1 = stops[j-1], stops[j]
+        if t1 - t0 > max_time:
+            continue
         real_wait_time = t1 - t
         # transform t to day offset
         u = (t + (19 * 60 * 60)) % (24 * 60 * 60)
@@ -93,13 +97,11 @@ for key, stops in real_trips.iteritems():
             xs.append(sched_wait_time / 60.)
             ys.append(real_wait_time / 60.)
 
-            print int(sched_wait_time/60.0), len(ys_by_x)
+        if sched_wait_time < MAX:
             ys_by_x[int(sched_wait_time / 60.0)].append(real_wait_time / 60.)
 
 seaborn.jointplot(numpy.array(xs), numpy.array(ys), kind='hex')
-# pyplot.xlim([0, 1800])
-# pyplot.ylim([0, 1800])
-pyplot.show()
+pyplot.savefig('wait_time_real_vs_sched_joint.png')
 
 pyplot.clf()
 percs = [50, 60, 70, 80, 90]
@@ -112,4 +114,9 @@ for x, ys in enumerate(ys_by_x):
 
 for i, ys in enumerate(results):
     pyplot.plot(range(len(ys)), ys, label='%d percentile' % percs[i])
-pyplot.show()
+pyplot.ylim([0, 60])
+pyplot.title('How long do you have to wait given how much schedule predicts')
+pyplot.xlabel('Scheduled waiting time (min)')
+pyplot.ylabel('Real waiting time (min)')
+pyplot.legend()
+pyplot.savefig('wait_time_real_vs_sched_percentiles.png')
